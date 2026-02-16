@@ -35,9 +35,11 @@ export default function Alerts() {
           .catch(() => [a.name, []])
       )
     ).then(entries => {
-      const next = { ...recentMap };
-      entries.forEach(([name, items]) => { next[name] = items; });
-      setRecentMap(next);
+      setRecentMap((prev) => {
+        const next = { ...prev };
+        entries.forEach(([name, items]) => { next[name] = items; });
+        return next;
+      });
     });
   }, [alerts, actors]);
 

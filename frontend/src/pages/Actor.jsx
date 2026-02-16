@@ -57,10 +57,6 @@ export default function Actor() {
         );
         setStats({ total: list.length, tactics: tacticSet.size });
 
-        if (data.actor?.id) {
-          loadTimeline(data.actor.id, timelineDays);
-        }
-
       })
       .catch(() => {
         console.log("actor not ready");

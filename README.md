@@ -24,8 +24,104 @@ Eso convierte la plataforma en una herramienta accionable para **detección temp
 - Node.js 18+ (para el frontend)
 - Docker (para Postgres)
 
-<<<<<<< HEAD
-=======
+## Ejecución por sistema operativo
+### macOS
+```bash
+# Base de datos
+docker-compose up -d
+
+# Backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requeriments.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+En otra terminal:
+```bash
+cd frontend
+npm install
+HOST=0.0.0.0 PORT=3000 npm start
+```
+
+### Linux (Ubuntu / Debian 12+)
+```bash
+# Base de datos
+docker-compose up -d
+
+# Backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requeriments.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+En otra terminal:
+```bash
+cd frontend
+npm install
+HOST=0.0.0.0 PORT=3000 npm start
+```
+
+Si estás en Debian 11/Bullseye y ves errores por `str | None`, tu Python es 3.9.
+Debes usar Python 3.10+ (recomendado 3.11).
+
+### Windows (PowerShell)
+```powershell
+# Base de datos
+docker-compose up -d
+
+# Backend
+py -3.11 -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requeriments.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+En otra terminal:
+```powershell
+cd frontend
+npm install
+$env:HOST="0.0.0.0"
+$env:PORT="3000"
+npm start
+```
+
+## Problemas comunes
+### `npm: command not found`
+No tienes Node.js/npm instalado.
+
+Linux (Debian/Ubuntu):
+```bash
+sudo apt update
+sudo apt install -y nodejs npm
+node -v
+npm -v
+```
+
+macOS (Homebrew):
+```bash
+brew install node
+node -v
+npm -v
+```
+
+Windows:
+- instala Node.js LTS desde `https://nodejs.org/`
+- cierra y abre terminal
+- verifica con `node -v` y `npm -v`
+
+### `TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'`
+Estás ejecutando con Python 3.9.
+Este proyecto requiere Python 3.10+.
+
+Verifica versión:
+```bash
+python3 --version
+```
+
+Si estás en Linux viejo (ej. Debian 11), instala Python 3.11 y crea `venv` de nuevo antes de ejecutar `uvicorn`.
+
 ## Inicio rápido (otro dispositivo en la red)
 Si quieres que alguien en la misma red abra la plataforma rápido, sigue estos pasos:
 
@@ -81,8 +177,6 @@ Si no abre desde otro equipo:
 - confirma que ambos están en la misma red,
 - permite puertos `3000` y `8000` en firewall,
 - reinicia frontend si cambiaste `frontend/.env`.
-
->>>>>>> b517929 (init proyecto)
 ## Estructura
 - `app/`: backend FastAPI
 - `frontend/`: frontend React
@@ -91,8 +185,6 @@ Si no abre desde otro equipo:
 
 > Nota: el archivo de dependencias se llama `requeriments.txt` (con esa ortografía).
 
-<<<<<<< HEAD
-=======
 ## Archivos `.env` que debes crear
 Para evitar errores en otro entorno, crea estos archivos:
 
@@ -100,8 +192,6 @@ Para evitar errores en otro entorno, crea estos archivos:
 2. `frontend/.env`
 
 Opcional (solo compatibilidad): `app/.env` con el mismo `DATABASE_URL` del `.env` raíz.
-
->>>>>>> b517929 (init proyecto)
 ## Variables de entorno
 Crea `.env` en la raíz del proyecto (mismo nivel que `docker-compose.yml`):
 
@@ -118,15 +208,11 @@ WATCHLIST_MIN_DISTINCT_DAYS=1
 NEW_ALERT_TACTIC_THRESHOLD_OVERRIDES=initial-access:2/1,discovery:4/3
 ```
 
-<<<<<<< HEAD
-=======
 Crea `frontend/.env` en `cti-platform/frontend/.env`:
 
 ```env
 REACT_APP_API_BASE_URL=http://TU_IP_LOCAL:8000
 ```
-
->>>>>>> b517929 (init proyecto)
 - `VT_SCAN_MIN_INTERVAL_MINUTES`: intervalo mínimo entre escaneos por actor en el colector masivo (`/admin/run-collector`).  
   Usa `0` para escanear siempre.
 - `VT_FILES_FALLBACK_LIMIT`: cantidad máxima de samples usadas en el fallback por archivos (`behaviour_mitre_trees`) cuando `attack_techniques` viene vacío.
@@ -165,14 +251,9 @@ Comandos útiles dentro de `psql`:
 SELECT COUNT(*) FROM actor_techniques;
 ```
 
-<<<<<<< HEAD
-### Migraciones necesarias (una sola vez)
-Se añadieron columnas nuevas y tablas de configuración. Ejecuta estos SQL en la BD:
-=======
 ### Migraciones necesarias (solo si ya tenías una BD vieja)
 Si es una instalación limpia, normalmente no necesitas esta sección.
 Si vienes de una versión anterior, ejecuta estos SQL en la BD:
->>>>>>> b517929 (init proyecto)
 
 ```sql
 ALTER TABLE techniques ADD COLUMN IF NOT EXISTS description TEXT;
