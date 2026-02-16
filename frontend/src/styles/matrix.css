@@ -1,0 +1,120 @@
+.matrix-page {
+  padding: 20px;
+  color: #e6edf3;
+}
+
+.matrix-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.matrix-header h1 {
+  margin: 0;
+  color: #58a6ff;
+}
+
+.matrix-header p {
+  margin: 6px 0 0;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.matrix-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.matrix-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5f5;
+}
+
+.matrix-controls select {
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  color: #e5e7eb;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.matrix-col {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+
+.col-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #21262d;
+  font-weight: 600;
+  color: #cbd5f5;
+}
+
+.col-body {
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.ttp {
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.ttp-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: #58a6ff;
+  font-weight: 700;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.ttp-id:hover {
+  text-decoration: underline;
+}
+
+.ttp-name {
+  color: #e6edf3;
+  font-size: 12px;
+}
+
+.ttp-count {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.empty {
+  padding: 12px;
+  border: 1px dashed #1f2937;
+  border-radius: 10px;
+  color: #94a3b8;
+  text-align: center;
+  font-size: 12px;
+}
+
+.muted {
+  color: #94a3b8;
+  font-size: 12px;
+}

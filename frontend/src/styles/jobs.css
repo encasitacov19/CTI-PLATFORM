@@ -1,0 +1,139 @@
+.jobs-page {
+  display: grid;
+  gap: 14px;
+}
+
+.jobs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.jobs-header h1 {
+  margin: 0;
+}
+
+.jobs-refresh {
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.jobs-refresh:hover {
+  background: #1e293b;
+}
+
+.jobs-hint {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.jobs-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.jobs-filters label {
+  display: grid;
+  gap: 6px;
+  color: #cbd5e1;
+}
+
+.jobs-filters select {
+  background: #0b1220;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.jobs-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fecaca;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.jobs-table-wrap {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.jobs-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+.jobs-table th {
+  background: #161b22;
+  padding: 10px;
+  text-align: left;
+  color: #93c5fd;
+  border-bottom: 1px solid #30363d;
+}
+
+.jobs-table td {
+  padding: 10px;
+  border-bottom: 1px solid #1f2937;
+  vertical-align: top;
+}
+
+.jobs-table tr:hover {
+  background: #111827;
+}
+
+.jobs-muted {
+  text-align: center;
+  color: #94a3b8;
+}
+
+.job-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+}
+
+.job-pill.running {
+  border-color: #0ea5e9;
+  color: #7dd3fc;
+}
+
+.job-pill.success {
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.job-pill.error {
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.jobs-progress-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #cbd5e1;
+}
+
+.jobs-detail {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}

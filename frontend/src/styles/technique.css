@@ -1,0 +1,99 @@
+.tech-page {
+  padding: 20px;
+  color: #e6edf3;
+}
+
+.tech-header {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.tech-header h1 {
+  margin: 0;
+  color: #58a6ff;
+}
+
+.tech-name {
+  color: #e6edf3;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.tech-tactic {
+  color: #94a3b8;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.tech-badge {
+  background: rgba(88, 166, 255, 0.12);
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  color: #58a6ff;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tech-section h2 {
+  margin: 0 0 10px 0;
+  color: #c9d1d9;
+}
+
+.tech-desc {
+  margin: 0 0 12px 0;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.tech-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tech-table th {
+  background: #161b22;
+  color: #58a6ff;
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #30363d;
+}
+
+.tech-table td {
+  padding: 12px;
+  border-bottom: 1px solid #21262d;
+}
+
+.tech-table tr:hover {
+  background: #1f2937;
+}
+
+.empty {
+  padding: 12px;
+  border: 1px dashed #1f2937;
+  color: #94a3b8;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.actor-link {
+  color: #58a6ff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.actor-link:hover {
+  text-decoration: underline;
+}

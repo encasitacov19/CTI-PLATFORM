@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>CTI Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background:#0f172a;
+            color:white;
+            font-family:Arial;
+            padding:20px;
+        }
+        .card {
+            background:#1e293b;
+            padding:20px;
+            border-radius:12px;
+            margin-bottom:20px;
+        }
+        canvas {
+            max-height:300px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>CTI Threat Intelligence Dashboard</h1>
+
+<div class="card">
+    <h2>Top Techniques (24h)</h2>
+    <canvas id="techniquesChart"></canvas>
+</div>
+
+<div class="card">
+    <h2>Alert Severity Distribution</h2>
+    <canvas id="severityChart"></canvas>
+</div>
+
+<script>
+
+async function loadTopTechniques() {
+
+    const res = await fetch("http://127.0.0.1:8000/dashboard/top-techniques");
+    const data = await res.json();
+
+    const labels = data.map(x => x.technique);
+    const values = data.map(x => x.alerts);
+
+    new Chart(document.getElementById("techniquesChart"), {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Alerts",
+                data: values
+            }]
+        }
+    });
+}
+
+async function loadSeverity() {
+
+    const res = await fetch("http://127.0.0.1:8000/dashboard/summary");
+    const data = await res.json();
+
+    new Chart(document.getElementById("severityChart"), {
+        type: "doughnut",
+        data: {
+            labels: ["HIGH","MEDIUM","LOW"],
+            datasets: [{
+                data: [data.high, data.medium, data.low]
+            }]
+        }
+    });
+}
+
+loadTopTechniques();
+loadSeverity();
+
+</script>
+
+</body>
+</html>
+

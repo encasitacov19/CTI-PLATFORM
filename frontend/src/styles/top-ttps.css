@@ -1,0 +1,145 @@
+.prioritized-page {
+  display: grid;
+  gap: 16px;
+}
+
+.prioritized-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.prioritized-header h1 {
+  margin: 0 0 6px 0;
+}
+
+.prioritized-header p {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.prioritized-controls,
+.prioritized-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.prioritized-controls label,
+.prioritized-filters label {
+  display: grid;
+  gap: 6px;
+  color: #cbd5e1;
+}
+
+.prioritized-controls select,
+.prioritized-filters select {
+  background: #0b1220;
+  border: 1px solid #334155;
+  color: #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.prioritized-chart-card {
+  background: radial-gradient(circle at 10% 10%, rgba(56, 189, 248, 0.18), transparent 45%), #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.prioritized-chart-card h2,
+.prioritized-list h2 {
+  margin-top: 0;
+}
+
+.error {
+  color: #fca5a5;
+}
+
+.prioritized-list {
+  display: grid;
+  gap: 10px;
+}
+
+.prioritized-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 12px;
+  background: #0d1117;
+}
+
+.tech-id {
+  font-weight: 700;
+  color: #93c5fd;
+}
+
+.tech-name {
+  color: #e5e7eb;
+  margin-top: 4px;
+}
+
+.tech-meta {
+  color: #94a3b8;
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.hover-help {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.score-box {
+  text-align: center;
+  min-width: 90px;
+}
+
+.score-box span {
+  display: block;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.score-box strong {
+  font-size: 22px;
+  color: #f8fafc;
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+}
+
+.btn {
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  font-size: 13px;
+  text-align: center;
+}
+
+.btn-tech {
+  color: #7dd3fc;
+  background: #0f172a;
+}
+
+.btn-tactic {
+  color: #86efac;
+  background: #052e1d;
+}
+
+@media (max-width: 900px) {
+  .prioritized-row {
+    grid-template-columns: 1fr;
+  }
+  .actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}

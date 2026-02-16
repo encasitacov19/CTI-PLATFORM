@@ -1,0 +1,91 @@
+from datetime import datetime, timedelta
+from app import models
+
+ALERT_WINDOW_HOURS = 24
+
+
+def should_alert(db, actor, technique, event_type):
+
+    state = db.query(models.AlertState)\
+        .filter_by(
+            actor_id=actor.id,
+            technique_id=technique.id,
+            event_type=event_type
+        ).first()
+
+    now = datetime.utcnow()
+
+    # Nunca alertado
+    if not state:
+        state = models.AlertState(
+            actor_id=actor.id,
+            technique_id=technique.id,
+            event_type=event_type,
+            last_alert_at=now
+        )
+        db.add(state)
+        return True
+
+    # verificar ventana de silencio
+    if now - state.last_alert_at > timedelta(hours=ALERT_WINDOW_HOURS):
+        state.last_alert_at = now
+        return True
+
+    return False
+
+
+def generate_alert(db, actor, technique, event_type):
+
+    if not should_alert(db, actor, technique, event_type):
+        return
+
+    severity_map = {
+        "NEW": "HIGH",
+        "REACTIVATED": "MEDIUM",
+        "DISAPPEARED": "LOW"
+    }
+
+    alert = models.Alert(
+        actor_id=actor.id,
+        technique_id=technique.id,
+        title=f"{actor.name} using {technique.tech_id}",
+        description=f"{event_type} technique detected in monitored region",
+        severity=severity_map.get(event_type, "LOW"),
+        created_at=datetime.utcnow()
+    )
+
+    db.add(alert)
+
+
+import requests
+
+MITRE = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+
+
+def build_tactic_map():
+    data = requests.get(MITRE).json()
+
+    mapping = {}
+
+    for obj in data["objects"]:
+        if obj.get("type") != "attack-pattern":
+            continue
+
+        ext = obj.get("external_references", [])
+        tid = None
+
+        for r in ext:
+            if r.get("source_name") == "mitre-attack":
+                tid = r.get("external_id")
+
+        if not tid:
+            continue
+
+        phases = obj.get("kill_chain_phases", [])
+        if not phases:
+            continue
+
+        mapping[tid] = phases[0]["phase_name"]
+
+    return mapping
+

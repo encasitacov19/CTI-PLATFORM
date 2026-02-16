@@ -1,0 +1,47 @@
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+app/.env
+frontend/.env
+Frontend/.env
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend build/deps
+frontend/node_modules/
+frontend/build/
+frontend/.cache/
+Frontend/node_modules/
+Frontend/build/
+Frontend/.cache/
+frontend/.git.backup/
+Frontend/.git.backup/
+
+# Temporary files
+*.tmp
+*.swp
+
+# Optional local folders
+postgres_data/

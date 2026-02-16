@@ -1,0 +1,82 @@
+.help-page {
+  padding: 20px;
+  color: #e6edf3;
+}
+
+.help-page h1 {
+  margin: 0;
+  color: #58a6ff;
+}
+
+.help-page p {
+  margin: 6px 0 16px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.help-card {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.help-card h2 {
+  margin: 0 0 8px 0;
+  color: #c9d1d9;
+  font-size: 14px;
+}
+
+.help-card ul {
+  margin: 0;
+  padding-left: 16px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.help-card li {
+  margin-bottom: 4px;
+}
+
+.help-section-title {
+  margin: 18px 0 6px;
+  color: #c9d1d9;
+}
+
+.help-section-sub {
+  margin: 0 0 12px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.glossary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.glossary-card {
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.glossary-card h3 {
+  margin: 0 0 6px;
+  color: #93c5fd;
+  font-size: 14px;
+}
+
+.glossary-card p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.45;
+}
