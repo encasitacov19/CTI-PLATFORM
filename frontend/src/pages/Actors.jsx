@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import api from "../api";
 import "../styles/actors.css";
 
+const RELEVANCE_STORAGE_KEY = "actors_relevance_levels_v1";
+
 const emptyForm = {
   name: "",
   gti_id: "",
@@ -23,6 +25,9 @@ const DAYS = [
 
 export default function Actors() {
   const [actors, setActors] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [relevanceFilter, setRelevanceFilter] = useState(1);
+  const [relevanceByActor, setRelevanceByActor] = useState({});
   const [labels, setLabels] = useState([]);
   const [labelsByActor, setLabelsByActor] = useState({});
   const [quickLabelByActor, setQuickLabelByActor] = useState({});
@@ -109,9 +114,53 @@ export default function Actors() {
     loadActorLabels();
     loadSchedule();
     loadMitreSchedule();
+
+    try {
+      const raw = localStorage.getItem(RELEVANCE_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          setRelevanceByActor(parsed);
+        }
+      }
+    } catch {
+      setRelevanceByActor({});
+    }
   }, []);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(RELEVANCE_STORAGE_KEY, JSON.stringify(relevanceByActor));
+    } catch {
+      // Ignore storage errors in private mode/quota issues.
+    }
+  }, [relevanceByActor]);
+
   const labelOptions = useMemo(() => labels.map(l => ({ value: String(l.id), name: l.name })), [labels]);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const getActorRelevance = (actorId) => Number(relevanceByActor[String(actorId)] || 3);
+
+  const filteredActors = useMemo(() => {
+    return actors.filter((a) => {
+      const relevance = Number(relevanceByActor[String(a.id)] || 3);
+      if (relevance < relevanceFilter) return false;
+
+      if (!normalizedSearch) return true;
+
+      const name = (a.name || "").toLowerCase();
+      const gtiId = (a.gti_id || "").toLowerCase();
+      const country = (a.country || "").toLowerCase();
+      const aliases = (a.aliases || "").toLowerCase();
+      const source = (a.source || "").toLowerCase();
+      return (
+        name.includes(normalizedSearch) ||
+        gtiId.includes(normalizedSearch) ||
+        country.includes(normalizedSearch) ||
+        aliases.includes(normalizedSearch) ||
+        source.includes(normalizedSearch)
+      );
+    });
+  }, [actors, normalizedSearch, relevanceByActor, relevanceFilter]);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -181,6 +230,14 @@ export default function Actors() {
     api.post(`/actors/${actorId}/scan`)
       .then(res => {
         const r = res?.data?.result;
+        if (!r) {
+          setScanStatus({ type: "error", message: "Respuesta inválida del backend." });
+          return;
+        }
+        if (r?.status !== "ok") {
+          setScanStatus({ type: "error", message: `Error de escaneo: ${r?.error || "desconocido"}` });
+          return;
+        }
         if (r?.error === "NOT_FOUND") {
           setScanStatus({ type: "error", message: "Actor no encontrado en GTI. Revisa el gti_id o el nombre." });
           return;
@@ -343,13 +400,26 @@ export default function Actors() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      await api.post("/actors/import", formData, {
+      const res = await api.post("/actors/import", formData, {
         headers: { "Content-Type": "multipart/form-data" }
       });
       loadActors();
-      setStatus({ type: "success", message: "Actores importados." });
-    } catch {
-      setStatus({ type: "error", message: "No se pudo importar el archivo." });
+      const { created = 0, updated = 0, skipped = 0, conflicts = [] } = res.data || {};
+      const hasConflicts = Array.isArray(conflicts) && conflicts.length > 0;
+      const details = hasConflicts ? ` Conflictos: ${conflicts.length}.` : "";
+      setStatus({
+        type: hasConflicts ? "error" : "success",
+        message: `Importación completada. Creados: ${created}, actualizados: ${updated}, omitidos: ${skipped}.${details}`
+      });
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      const statusCode = err?.response?.status;
+      const message = Array.isArray(detail) ? detail.map(d => d?.msg).filter(Boolean).join(" | ") : detail;
+      const fallback = err?.message || "No se pudo importar el archivo.";
+      setStatus({
+        type: "error",
+        message: statusCode ? `Error ${statusCode}: ${message || fallback}` : fallback
+      });
     } finally {
       e.target.value = "";
     }
@@ -522,6 +592,30 @@ export default function Actors() {
         <h2>Actores registrados</h2>
         {scanStatus.message && <div className={`status ${scanStatus.type}`}>{scanStatus.message}</div>}
 
+        <div className="actors-search-row">
+          <input
+            type="search"
+            className="actors-search-input"
+            placeholder="Buscar por nombre, GTI ID, país, apodos o fuente..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <div className="actors-relevance-filter">
+            <span>Relevancia mínima: {relevanceFilter}/5</span>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={relevanceFilter}
+              onChange={(e) => setRelevanceFilter(Number(e.target.value))}
+            />
+          </div>
+          <span className="actors-search-count">
+            {filteredActors.length}/{actors.length}
+          </span>
+        </div>
+
         <div className="inline-actions" style={{ marginBottom: 10 }}>
           <button type="button" className="secondary" onClick={exportActors}>Exportar CSV</button>
           <label className="file-btn">
@@ -532,6 +626,8 @@ export default function Actors() {
 
         {actors.length === 0 ? (
           <p>No hay actores aún.</p>
+        ) : filteredActors.length === 0 ? (
+          <p>No hay resultados para esa búsqueda.</p>
         ) : (
           <table>
             <thead>
@@ -541,6 +637,7 @@ export default function Actors() {
                 <th>País</th>
                 <th>Apodos</th>
                 <th>Fuente</th>
+                <th>Relevancia</th>
                 <th>Etiquetas</th>
                 <th>Último escaneo</th>
                 <th>Estado</th>
@@ -548,7 +645,7 @@ export default function Actors() {
               </tr>
             </thead>
             <tbody>
-              {actors.map(a => (
+              {filteredActors.map(a => (
                 <tr key={a.id}>
                   <td>
                     <Link to={`/actors/${encodeURIComponent(a.name)}`}>{a.name}</Link>
@@ -557,6 +654,22 @@ export default function Actors() {
                   <td>{a.country}</td>
                   <td className="muted">{a.aliases || "-"}</td>
                   <td className="muted">{a.source || "-"}</td>
+                  <td>
+                    <div className="relevance-cell">
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={getActorRelevance(a.id)}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          setRelevanceByActor((prev) => ({ ...prev, [String(a.id)]: value }));
+                        }}
+                      />
+                      <span className="relevance-pill">{getActorRelevance(a.id)}/5</span>
+                    </div>
+                  </td>
                   <td>
                     <div className="tag-chip-list">
                       {(labelsByActor[String(a.id)] || []).map(l => (

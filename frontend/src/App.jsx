@@ -12,6 +12,8 @@ import Help from "./pages/Help";
 import Jobs from "./pages/Jobs";
 import TopTtps from "./pages/TopTtps";
 import Detections from "./pages/Detections";
+import IntelReports from "./pages/IntelReports";
+import IntelReportsHistory from "./pages/IntelReportsHistory";
 
 
 
@@ -31,6 +33,8 @@ function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/top-ttps" element={<TopTtps />} />
           <Route path="/detections" element={<Detections />} />
+          <Route path="/intel-reports" element={<IntelReports />} />
+          <Route path="/intel-reports/history" element={<IntelReportsHistory />} />
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/help" element={<Help />} />
 

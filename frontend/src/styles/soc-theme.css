@@ -1,0 +1,377 @@
+.dashboard-page,
+.actors-page,
+.search-page,
+.alerts-container,
+.jobs-page,
+.matrix-page,
+.playbook-page,
+.tech-page,
+.help-page,
+.prioritized-page,
+.detections-page,
+.actor-page {
+  animation: soc-fade-in 0.35s ease both;
+}
+
+.dashboard-page h1,
+.actors-page h1,
+.search-page h1,
+.jobs-page h1,
+.matrix-page h1,
+.playbook-page h1,
+.tech-page h1,
+.help-page h1,
+.prioritized-page h1,
+.detections-page h1,
+.actor-page h1 {
+  color: #f4f9ff;
+  text-shadow: 0 0 18px rgba(62, 124, 255, 0.3);
+}
+
+.dashboard-page p,
+.actors-page p,
+.search-page p,
+.jobs-page p,
+.matrix-page p,
+.playbook-page p,
+.tech-page p,
+.help-page p,
+.prioritized-page p,
+.detections-page p,
+.actor-page p,
+.muted {
+  color: var(--soc-text-soft);
+}
+
+.metric-card,
+.map-card,
+.panel,
+.actor-form,
+.schedule-card,
+.table-wrap,
+.jobs-table-wrap,
+.det-panel,
+.matrix-col,
+.left-panel,
+.right-panel,
+.result-card,
+.search-box,
+.help-card,
+.glossary-card,
+.actor-card,
+.prioritized-chart-card,
+.prioritized-row,
+.tech-header,
+.tech-table,
+.det-cond-item,
+.det-match-item,
+.det-item,
+.stage,
+.lib-item,
+.ttp,
+.card-header,
+.new-tactic-card,
+.actors-table-wrap {
+  position: relative;
+  background:
+    linear-gradient(165deg, rgba(14, 37, 70, 0.78), rgba(6, 19, 40, 0.82)),
+    var(--soc-surface-1);
+  border: 1px solid var(--soc-border-soft);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 227, 255, 0.06),
+    0 18px 30px rgba(2, 7, 16, 0.45);
+}
+
+.metric-card::after,
+.panel::after,
+.actor-form::after,
+.schedule-card::after,
+.det-panel::after,
+.matrix-col::after,
+.left-panel::after,
+.right-panel::after,
+.actor-card::after,
+.prioritized-chart-card::after,
+.tech-header::after,
+.tech-table::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border-top: 1px solid rgba(0, 227, 255, 0.22);
+  pointer-events: none;
+}
+
+.metric-card:hover,
+.panel:hover,
+.result-card:hover,
+.actor-card:hover,
+.prioritized-row:hover,
+.lib-item:hover,
+.ttp:hover {
+  border-color: var(--soc-border-strong);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 227, 255, 0.18),
+    0 22px 34px rgba(2, 8, 18, 0.55);
+}
+
+.metric-label,
+.map-title,
+.jobs-hint,
+.search-count,
+.tech-tactic,
+.help-card li,
+.tech-meta,
+.lib-tactic {
+  letter-spacing: 0.04em;
+  color: var(--soc-text-dim);
+}
+
+.metric-value {
+  color: var(--soc-cyan);
+  text-shadow: 0 0 16px rgba(0, 227, 255, 0.3);
+}
+
+.chain-risk,
+.severity-pill {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 16px rgba(0, 0, 0, 0.35);
+}
+
+button,
+.btn,
+.add,
+.jobs-refresh,
+.actor-form button,
+.det-form button,
+.schedule-form button[type="submit"] {
+  border-radius: 10px;
+  border: 1px solid rgba(0, 227, 255, 0.38);
+  background: linear-gradient(130deg, rgba(10, 91, 114, 0.92), rgba(9, 44, 96, 0.95));
+  color: #eaffff;
+  letter-spacing: 0.04em;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:hover,
+.btn:hover,
+.add:hover,
+.jobs-refresh:hover,
+.actor-form button:hover,
+.det-form button:hover,
+.schedule-form button[type="submit"]:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 20px rgba(0, 20, 42, 0.4);
+}
+
+.danger,
+.remove {
+  border-color: rgba(255, 83, 106, 0.55);
+  background: linear-gradient(130deg, rgba(122, 24, 41, 0.92), rgba(78, 9, 26, 0.95));
+  color: #ffe7ea;
+}
+
+.ghost,
+.file-btn,
+.day,
+.det-form .ghost {
+  border: 1px solid rgba(102, 135, 177, 0.58);
+  background: rgba(16, 34, 62, 0.72);
+  color: #cfe4ff;
+}
+
+.day.active,
+.det-item.active,
+.nav-link.active {
+  border-color: rgba(0, 227, 255, 0.75);
+}
+
+input,
+select,
+textarea,
+.actors-search-input,
+.search-box input,
+.jobs-filters select,
+.matrix-controls select,
+.filters select,
+.filters input,
+.det-form input,
+.det-form select,
+.det-form textarea {
+  background: rgba(7, 24, 46, 0.9);
+  border: 1px solid rgba(78, 113, 157, 0.64);
+  color: #eff8ff;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.actors-search-input:focus,
+.search-box input:focus,
+.jobs-filters select:focus,
+.matrix-controls select:focus,
+.filters select:focus,
+.filters input:focus,
+.det-form input:focus,
+.det-form select:focus,
+.det-form textarea:focus {
+  outline: none;
+  border-color: rgba(0, 227, 255, 0.82);
+  box-shadow: 0 0 0 3px rgba(0, 227, 255, 0.16);
+}
+
+.jobs-table,
+.tech-table,
+.actors-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.jobs-table th,
+.tech-table th,
+.actors-table th {
+  background: rgba(10, 34, 62, 0.95);
+  color: #79d8ff;
+  border-bottom: 1px solid rgba(84, 126, 171, 0.7);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.jobs-table td,
+.tech-table td,
+.actors-table td {
+  border-bottom: 1px solid rgba(54, 87, 122, 0.42);
+}
+
+.jobs-table tr:hover,
+.tech-table tr:hover,
+.actors-table tr:hover {
+  background: rgba(10, 34, 62, 0.62);
+}
+
+.jobs-progress-line,
+.alert-mid,
+.actors-search-count {
+  color: #a8c2df;
+}
+
+.job-pill {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.job-pill.running {
+  background: rgba(0, 150, 220, 0.2);
+}
+
+.job-pill.success {
+  background: rgba(16, 145, 95, 0.22);
+}
+
+.job-pill.error {
+  background: rgba(170, 36, 59, 0.22);
+}
+
+.det-status,
+.jobs-error,
+.status {
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.det-status {
+  background: rgba(15, 61, 103, 0.54);
+  border: 1px solid rgba(68, 163, 255, 0.52);
+  color: #cde9ff;
+}
+
+.search-results,
+.help-grid,
+.glossary-grid,
+.alerts-grid,
+.matrix-grid,
+.ttp-grid,
+.kpi-grid {
+  gap: 14px;
+}
+
+.chart-box {
+  border: 1px solid rgba(66, 108, 157, 0.75);
+  background:
+    linear-gradient(180deg, rgba(7, 27, 52, 0.84), rgba(5, 17, 36, 0.92)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.012) 0,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+}
+
+.subtle-glow,
+.metric-card,
+.panel,
+.actor-card,
+.prioritized-chart-card {
+  backdrop-filter: blur(3px);
+}
+
+.help-card h2,
+.glossary-card h3,
+.section-header h2,
+.panel-head h2,
+.library-header,
+.route-header,
+.card-header {
+  color: #d7ebff;
+}
+
+.empty,
+.empty-card {
+  border: 1px dashed rgba(80, 122, 171, 0.56);
+  background: rgba(8, 24, 46, 0.52);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(6, 19, 37, 0.7);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(63, 103, 154, 0.86);
+  border-radius: 999px;
+  border: 2px solid rgba(6, 19, 37, 0.7);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 227, 255, 0.75);
+}
+
+@keyframes soc-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  .playbook-grid,
+  .detections-layout,
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .alerts-grid {
+    grid-template-columns: 1fr;
+  }
+}

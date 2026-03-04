@@ -24,6 +24,42 @@ Eso convierte la plataforma en una herramienta accionable para **detección temp
 - Node.js 18+ (para el frontend)
 - Docker (para Postgres)
 
+## Modo productivo temporal (recomendado mientras tanto)
+Este modo reemplaza `uvicorn --reload` y `npm start` por contenedores estables:
+- backend FastAPI sin hot reload (`WEB_CONCURRENCY=1` por defecto),
+- frontend compilado (build React) servido con Nginx,
+- reinicio automatico con `restart: unless-stopped`.
+
+### Levantar todo
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### Ver estado
+```bash
+docker compose -f docker-compose.prod.yml ps
+```
+
+### Ver logs
+```bash
+docker compose -f docker-compose.prod.yml logs -f backend
+docker compose -f docker-compose.prod.yml logs -f frontend
+```
+
+### Reiniciar servicios
+```bash
+docker compose -f docker-compose.prod.yml restart backend frontend
+```
+
+### Bajar entorno
+```bash
+docker compose -f docker-compose.prod.yml down
+```
+
+### URLs
+- Frontend: `http://TU_IP_O_HOST:3000`
+- API: `http://TU_IP_O_HOST:8000`
+
 ## Ejecución por sistema operativo
 ### macOS
 ```bash
@@ -206,6 +242,13 @@ WATCHLIST_TECHNIQUES=T1190,T1059
 WATCHLIST_MIN_SIGHTINGS=1
 WATCHLIST_MIN_DISTINCT_DAYS=1
 NEW_ALERT_TACTIC_THRESHOLD_OVERRIDES=initial-access:2/1,discovery:4/3
+OPENCTI_URL=http://localhost:8080
+OPENCTI_TOKEN=TU_TOKEN_OPENCTI
+OPENCTI_VERIFY_TLS=true
+OPENCTI_DEFAULT_COUNTRY=UNK
+MISP_URL=https://TU_MISP
+MISP_API_KEY=TU_API_KEY_MISP
+MISP_VERIFY_TLS=false
 ```
 
 Crea `frontend/.env` en `cti-platform/frontend/.env`:
@@ -222,6 +265,24 @@ REACT_APP_API_BASE_URL=http://TU_IP_LOCAL:8000
 - `WATCHLIST_MIN_SIGHTINGS`: umbral de observaciones para técnicas de watchlist.
 - `WATCHLIST_MIN_DISTINCT_DAYS`: umbral de días para técnicas de watchlist.
 - `NEW_ALERT_TACTIC_THRESHOLD_OVERRIDES`: umbral por táctica (`tactica:sightings/days`), ej. `initial-access:2/1`.
+- `OPENCTI_URL`: URL base de OpenCTI (sin `/graphql`), ej. `http://localhost:8080`.
+- `OPENCTI_TOKEN`: token API de OpenCTI para GraphQL.
+- `OPENCTI_VERIFY_TLS`: `true/false` para validar certificado TLS al conectar OpenCTI.
+- `OPENCTI_DEFAULT_COUNTRY`: país por defecto para actores creados desde OpenCTI si no existe mapeo local.
+- `MISP_URL`: URL base de MISP (ej: `https://3.95.138.115`).
+- `MISP_API_KEY`: API key de MISP.
+- `MISP_VERIFY_TLS`: `true/false` para validar certificado TLS de MISP.
+
+## Ingesta MISP para dashboard
+Con backend levantado, puedes sincronizar atributos IOC desde MISP:
+
+```bash
+curl -X POST "http://localhost:8000/admin/sync-misp?days=180&limit=10000&page_size=500"
+```
+
+Nuevas visualizaciones disponibles en Dashboard:
+- IOCs por fuente (`TweetFeed`, `GTI/Mandiant`, `AlertaDeInteligenciaDeAmenazas`, `Otro`) por fecha.
+- Cantidad de atributos por tipo agregado (`Dominios`, `IPs`, `Otros`) y top tipos MISP.
 
 ## Base de datos (Postgres)
 Levanta la base con Docker (obligatorio):
@@ -339,6 +400,7 @@ Endpoints clave:
 - `POST /admin/run-collector` : ejecuta recolección GTI para actores activos
 - `POST /actors/{id}/scan` : escaneo de un actor específico
 - `POST /admin/update-mitre` : sincroniza MITRE (legacy + STIX GitHub)
+- `POST /admin/sync-opencti` : sincroniza actores desde OpenCTI (job `opencti_sync`)
 - `GET /jobs` : lista jobs (estado, progreso, timestamps)
 - `GET /jobs/{job_id}` : detalle de un job específico
 - `GET /dashboard/top-ttps` : top de técnicas priorizadas por impacto (actores + observaciones + táctica + vigencia). Soporta `suppress_noise=true`.
@@ -533,6 +595,7 @@ sudo systemctl reload nginx
 ## MITRE Sync (STIX GitHub)
 - La sincronización semanal se ejecuta en background (sin cron externo).
 - Configurable en **Configuración**.
+- En el primer arranque del backend, si `techniques` está vacía, se ejecuta una carga inicial automática de MITRE.
 - El botón **“Cargar MITRE ahora”** ejecuta `load_mitre` + `sync_mitre_from_github`.
 
 ## Zona horaria

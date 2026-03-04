@@ -1,6 +1,7 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel
+from typing import Any
 
 
 class ActorCreate(BaseModel):
@@ -124,3 +125,40 @@ class ActorTagOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class IntelReportTemplateUpdate(BaseModel):
+    payload: dict[str, Any]
+
+
+class IntelReportTemplateOut(BaseModel):
+    report_type: str
+    payload: dict[str, Any] | None = None
+    updated_at: datetime | None = None
+
+
+class IntelReportCreate(BaseModel):
+    report_type: str
+    payload: dict[str, Any]
+    report_title: str | None = None
+    report_number: str | int | None = None
+    report_date: str | None = None
+
+
+class IntelReportOut(BaseModel):
+    id: int
+    report_type: str
+    report_year: int
+    report_sequence: int
+    report_title: str | None = None
+    file_name: str
+    report_date: date | None = None
+    payload: dict[str, Any] | None = None
+    created_at: datetime | None = None
+
+
+class IntelReportUpdate(BaseModel):
+    payload: dict[str, Any]
+    report_title: str | None = None
+    report_number: str | int | None = None
+    report_date: str | None = None

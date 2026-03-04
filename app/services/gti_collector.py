@@ -61,9 +61,13 @@ TACTIC_THRESHOLD_OVERRIDES = _parse_tactic_overrides(NEW_ALERT_TACTIC_THRESHOLD_
 # Obtener collection ID del actor
 # -------------------------------------------------
 def resolve_collection_id(actor):
-    # Prefer GTI/VT ID if provided (e.g. threat-actor--uuid)
-    if getattr(actor, "gti_id", None):
-        return actor.gti_id
+    # Prefer GTI/VT collection ID only if it is valid in VT.
+    candidate = (getattr(actor, "gti_id", None) or "").strip()
+    if candidate:
+        probe = requests.get(f"{BASE}/collections/{candidate}", headers=HEADERS)
+        if probe.status_code == 200:
+            return candidate
+        print("Provided gti_id is not a VT collection id:", candidate, "status:", probe.status_code)
 
     url = f"{BASE}/intelligence/search"
 
@@ -104,7 +108,7 @@ def fetch_actor_ttps(collection_id: str):
 
         if r.status_code != 200:
             print("TTP error:", r.status_code, r.text)
-            return all_ttps, "ERROR"
+            return all_ttps, f"TTP_HTTP_{r.status_code}"
 
         data = r.json()
 
@@ -128,7 +132,7 @@ def fetch_actor_file_hashes(collection_id: str, limit: int = FILES_FALLBACK_LIMI
 
         if r.status_code != 200:
             print("Files error:", r.status_code, r.text)
-            return hashes, "ERROR"
+            return hashes, f"FILES_HTTP_{r.status_code}"
 
         data = r.json()
         batch = [x["id"] for x in data.get("data", []) if x.get("id")]
@@ -163,7 +167,7 @@ def fetch_file_mitre_techniques(file_hash: str):
 def fetch_actor_ttps_from_files(collection_id: str):
     hashes, hash_err = fetch_actor_file_hashes(collection_id)
     if hash_err:
-        return [], "ERROR"
+        return [], {}, hash_err
 
     all_ttps = set()
     evidence_map = {}
@@ -248,7 +252,7 @@ def update_actor_ttps(db: Session, actor):
     source = "attack_techniques"
     fallback_evidence_map = {}
 
-    if err == "ERROR":
+    if err:
         # Si falla este endpoint, no marcamos técnicas como desaparecidas por un error temporal.
         return {
             "status": "error",
@@ -265,10 +269,10 @@ def update_actor_ttps(db: Session, actor):
 
     if not ttps:
         fallback_ttps, fallback_evidence_map, fallback_err = fetch_actor_ttps_from_files(collection_id)
-        if fallback_err == "ERROR":
+        if fallback_err:
             return {
                 "status": "error",
-                "error": "FILES_FALLBACK_ERROR",
+                "error": fallback_err,
                 "source": "files_behaviour_mitre_trees",
                 "total": 0,
                 "inserted": 0,
@@ -278,7 +282,7 @@ def update_actor_ttps(db: Session, actor):
                 "disabled": 0,
                 "missing_mitre": 0
             }
-        if fallback_err != "ERROR" and fallback_ttps:
+        if not fallback_err and fallback_ttps:
             ttps = fallback_ttps
             source = "files_behaviour_mitre_trees"
 

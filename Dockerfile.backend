@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY requeriments.txt ./
+RUN pip install --upgrade pip && pip install -r requeriments.txt
+
+COPY app ./app
+
+EXPOSE 8000
+
+# Produccion temporal: sin reload. Se deja 1 worker por defecto para evitar
+# carreras en create_all() al iniciar varios procesos simultaneamente.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-1}"]

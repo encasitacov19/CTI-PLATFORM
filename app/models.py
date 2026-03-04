@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, Float, Text, UniqueConstraint
 from datetime import datetime
 from .database import Base
 
@@ -235,3 +235,51 @@ class ActorTag(Base):
     actor_id = Column(Integer, ForeignKey("threat_actors.id"), index=True)
     tag_id = Column(Integer, ForeignKey("tags.id"), index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MispAttribute(Base):
+    __tablename__ = "misp_attributes"
+
+    id = Column(Integer, primary_key=True)
+    misp_attribute_id = Column(String, unique=True, index=True)
+    misp_event_id = Column(String, index=True)
+    event_info = Column(String, nullable=True)
+
+    attribute_type = Column(String, index=True)
+    attribute_category = Column(String, nullable=True)
+    value = Column(Text)
+    comment = Column(Text, nullable=True)
+    to_ids = Column(Boolean, default=False)
+
+    source_bucket = Column(String, index=True, default="Otro")
+    source_raw = Column(String, nullable=True)
+
+    observed_date = Column(Date, index=True)
+    observed_at = Column(DateTime, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class IntelReportTemplate(Base):
+    __tablename__ = "intel_report_templates"
+
+    id = Column(Integer, primary_key=True)
+    report_type = Column(String, unique=True, index=True)  # malware | vulnerabilities
+    payload_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class IntelReport(Base):
+    __tablename__ = "intel_reports"
+
+    id = Column(Integer, primary_key=True)
+    report_type = Column(String, index=True)  # malware | vulnerabilities
+    report_year = Column(Integer, index=True)
+    report_sequence = Column(Integer, index=True)
+    report_title = Column(String, nullable=True)
+    file_name = Column(String, index=True)
+    report_date = Column(Date, nullable=True, index=True)
+    payload_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, index=True)

@@ -3,7 +3,7 @@ import api from "../api";
 import "../styles/jobs.css";
 
 const STATUS_OPTIONS = ["ALL", "RUNNING", "SUCCESS", "ERROR"];
-const TYPE_OPTIONS = ["ALL", "collector", "actor_scan", "mitre_sync"];
+const TYPE_OPTIONS = ["ALL", "collector", "actor_scan", "mitre_sync", "opencti_sync"];
 
 export default function Jobs() {
   const [jobs, setJobs] = useState([]);
@@ -54,7 +54,7 @@ export default function Jobs() {
         <button className="jobs-refresh" onClick={loadJobs}>Actualizar</button>
       </div>
 
-      <p className="jobs-hint">Monitorea ejecuciones de collector, escaneos por actor y sincronización MITRE.</p>
+      <p className="jobs-hint">Monitorea ejecuciones de collector, escaneos por actor, sincronización MITRE y OpenCTI.</p>
 
       <div className="jobs-filters">
         <label>

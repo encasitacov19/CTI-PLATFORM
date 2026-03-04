@@ -1,17 +1,35 @@
 .dashboard-page {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   color: #e6edf3;
 }
 
 .dashboard-header h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: 28px;
 }
 
 .dashboard-header p {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   color: #94a3b8;
+}
+
+.dashboard-block {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-block-head h2 {
+  margin: 0;
+  font-size: 18px;
 }
 
 .summary-grid {
@@ -76,7 +94,7 @@
 
 .panel-head h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 17px;
 }
 
 .muted {
@@ -233,6 +251,47 @@
   color: #e5e7eb;
   padding: 6px 8px;
   border-radius: 8px;
+}
+
+.misp-actions button {
+  background: #0f766e;
+  border: 1px solid #14b8a6;
+  color: #ecfeff;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.misp-actions button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.sync-status {
+  margin: 0;
+  color: #67e8f9;
+  font-size: 12px;
+}
+
+.mini-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.mini-metric {
+  background: #0d1117;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.top-types-list {
+  display: grid;
+  gap: 8px;
 }
 
 .actor-link {

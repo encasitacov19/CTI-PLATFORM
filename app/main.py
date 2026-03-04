@@ -18,6 +18,8 @@ from app.services.actor_ranking import calculate_actor_ranking
 from app.services.matrix_service import build_country_matrix
 from app.services.mitre_loader import load_mitre
 from app.services.mitre_sync import sync_mitre_from_github
+from app.services.misp_sync import sync_misp_attributes
+from app.services.opencti_sync import sync_opencti_actors
 from app.services.threat_profile import build_country_profile
 from app.services.predictor import predict_next_techniques
 from datetime import datetime, timedelta, timezone
@@ -25,10 +27,12 @@ from zoneinfo import ZoneInfo
 import asyncio
 from sqlalchemy import func
 from sqlalchemy import case
+from sqlalchemy.exc import IntegrityError
 from fastapi.responses import StreamingResponse
 import csv
 import io
 from datetime import datetime, timedelta
+import json
 
 
 # crear tablas automáticamente (temporal)
@@ -37,6 +41,8 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="CTI Platform")
 
 BOGOTA_TZ = ZoneInfo("America/Bogota")
+INTEL_REPORT_TYPES = {"malware", "vulnerabilities"}
+INTEL_REPORT_FILE_TOKEN = "AlertaDeInteligenciaDeAmenazas"
 
 def utc_to_bogota(dt):
     if not dt:
@@ -72,6 +78,88 @@ def _job_to_response(job: models.JobRun):
         "started_at": utc_to_bogota(job.started_at).isoformat() if job.started_at else None,
         "finished_at": utc_to_bogota(job.finished_at).isoformat() if job.finished_at else None,
         "updated_at": utc_to_bogota(job.updated_at).isoformat() if job.updated_at else None,
+    }
+
+
+def _normalize_report_type(report_type: str) -> str:
+    rt = (report_type or "").strip().lower()
+    if rt not in INTEL_REPORT_TYPES:
+        raise HTTPException(status_code=400, detail="invalid report_type. Use malware or vulnerabilities")
+    return rt
+
+
+def _report_template_to_response(row: models.IntelReportTemplate):
+    payload = None
+    if row.payload_json:
+        try:
+            payload = json.loads(row.payload_json)
+        except Exception:
+            payload = None
+    return {
+        "report_type": row.report_type,
+        "payload": payload,
+        "updated_at": utc_to_bogota(row.updated_at).isoformat() if row.updated_at else None,
+    }
+
+
+def _parse_report_date(raw_value: str | None):
+    raw = str(raw_value or "").strip()
+    if not raw:
+        return None
+    try:
+        if len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+            return datetime.strptime(raw, "%Y-%m-%d").date()
+        if len(raw) == 10 and raw[2] == "/" and raw[5] == "/":
+            return datetime.strptime(raw, "%d/%m/%Y").date()
+    except Exception:
+        return None
+    return None
+
+
+def _coerce_positive_int(value):
+    if value is None:
+        return None
+    try:
+        parsed = int(str(value).strip())
+    except Exception:
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _sanitize_report_title_for_filename(value: str | None) -> str:
+    title = str(value or "").strip()
+    if not title:
+        return "Sin titulo"
+    for ch in ['\\', '/', ':', '*', '?', '"', '<', '>', '|']:
+        title = title.replace(ch, " ")
+    title = " ".join(title.split())
+    if len(title) > 180:
+        title = title[:180].rstrip()
+    return title or "Sin titulo"
+
+
+def _compose_intel_pdf_filename(sequence: int, year: int, report_title: str) -> str:
+    safe_title = _sanitize_report_title_for_filename(report_title)
+    return f"{sequence:02d}. {year}_{INTEL_REPORT_FILE_TOKEN} ({safe_title}).pdf"
+
+
+def _report_history_to_response(row: models.IntelReport, include_payload: bool = False):
+    payload = None
+    if include_payload and row.payload_json:
+        try:
+            payload = json.loads(row.payload_json)
+        except Exception:
+            payload = None
+    return {
+        "id": row.id,
+        "report_type": row.report_type,
+        "report_year": row.report_year,
+        "report_sequence": row.report_sequence,
+        "report_title": row.report_title,
+        "file_name": row.file_name,
+        "report_date": row.report_date,
+        "payload": payload,
+        "created_at": utc_to_bogota(row.created_at).isoformat() if row.created_at else None,
     }
 
 
@@ -223,6 +311,52 @@ def _run_mitre_sync_job():
     finally:
         db.close()
 
+
+def _ensure_mitre_seeded():
+    db = SessionLocal()
+    try:
+        existing = db.query(models.Technique.id).limit(1).first()
+        if existing:
+            return
+
+        print("MITRE bootstrap: techniques table empty. Running initial sync...")
+        try:
+            result = sync_mitre_from_github(db)
+            print("MITRE bootstrap completed:", result)
+        except Exception as e:
+            print("MITRE bootstrap sync failed, trying legacy loader:", e)
+            load_mitre(db)
+    finally:
+        db.close()
+
+
+def _run_opencti_sync_job(limit: int = 200):
+    db = SessionLocal()
+    job = None
+    try:
+        job = _start_job(db, job_type="opencti_sync", trigger="manual", total_items=1)
+        _update_job(db, job.id, processed_items=0, total_items=1, details="opencti_sync:start")
+        result = sync_opencti_actors(db, limit=limit)
+        _update_job(
+            db,
+            job.id,
+            processed_items=1,
+            total_items=1,
+            details=f"fetched={result.get('fetched', 0)} created={result.get('created', 0)} updated={result.get('updated', 0)}"
+        )
+        _finish_job_success(
+            db,
+            job.id,
+            details=f"created={result.get('created', 0)} updated={result.get('updated', 0)} unchanged={result.get('unchanged', 0)} skipped={result.get('skipped', 0)}"
+        )
+        return {"job_id": job.id, **result}
+    except Exception as e:
+        if job:
+            _finish_job_error(db, job.id, str(e))
+        raise
+    finally:
+        db.close()
+
 async def _scheduler_loop():
     await asyncio.sleep(3)
     while True:
@@ -326,6 +460,7 @@ async def _mitre_scheduler_loop():
 
 @app.on_event("startup")
 async def start_scheduler():
+    await asyncio.to_thread(_ensure_mitre_seeded)
     asyncio.create_task(_scheduler_loop())
     asyncio.create_task(_mitre_scheduler_loop())
 
@@ -360,6 +495,224 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
     if not row:
         raise HTTPException(status_code=404, detail="job not found")
     return _job_to_response(row)
+
+
+@app.get("/intel/report-templates", response_model=list[schemas.IntelReportTemplateOut])
+def list_report_templates(db: Session = Depends(get_db)):
+    rows = (
+        db.query(models.IntelReportTemplate)
+        .order_by(models.IntelReportTemplate.report_type.asc())
+        .all()
+    )
+    return [_report_template_to_response(r) for r in rows]
+
+
+@app.get("/intel/report-templates/{report_type}", response_model=schemas.IntelReportTemplateOut)
+def get_report_template(report_type: str, db: Session = Depends(get_db)):
+    rt = _normalize_report_type(report_type)
+    row = (
+        db.query(models.IntelReportTemplate)
+        .filter(models.IntelReportTemplate.report_type == rt)
+        .first()
+    )
+    if not row:
+        return {"report_type": rt, "payload": None, "updated_at": None}
+    return _report_template_to_response(row)
+
+
+@app.put("/intel/report-templates/{report_type}", response_model=schemas.IntelReportTemplateOut)
+def upsert_report_template(
+    report_type: str,
+    data: schemas.IntelReportTemplateUpdate,
+    db: Session = Depends(get_db)
+):
+    rt = _normalize_report_type(report_type)
+    payload = data.payload if isinstance(data.payload, dict) else {}
+
+    row = (
+        db.query(models.IntelReportTemplate)
+        .filter(models.IntelReportTemplate.report_type == rt)
+        .first()
+    )
+    now = datetime.utcnow()
+    serialized = json.dumps(payload, ensure_ascii=False)
+
+    if row:
+        row.payload_json = serialized
+        row.updated_at = now
+    else:
+        row = models.IntelReportTemplate(
+            report_type=rt,
+            payload_json=serialized,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(row)
+
+    db.commit()
+    db.refresh(row)
+    return _report_template_to_response(row)
+
+
+@app.get("/intel/reports", response_model=list[schemas.IntelReportOut])
+def list_intel_reports(
+    report_type: str | None = None,
+    year: int | None = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.IntelReport)
+
+    if report_type:
+        query = query.filter(models.IntelReport.report_type == _normalize_report_type(report_type))
+    if year:
+        query = query.filter(models.IntelReport.report_year == year)
+
+    safe_limit = max(1, min(limit, 500))
+    rows = (
+        query.order_by(models.IntelReport.created_at.desc())
+        .limit(safe_limit)
+        .all()
+    )
+    return [_report_history_to_response(r, include_payload=False) for r in rows]
+
+
+@app.get("/intel/reports/{report_id}", response_model=schemas.IntelReportOut)
+def get_intel_report(report_id: int, db: Session = Depends(get_db)):
+    row = (
+        db.query(models.IntelReport)
+        .filter(models.IntelReport.id == report_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="report not found")
+    return _report_history_to_response(row, include_payload=True)
+
+
+@app.post("/intel/reports", response_model=schemas.IntelReportOut)
+def create_intel_report_history(
+    data: schemas.IntelReportCreate,
+    db: Session = Depends(get_db),
+):
+    rt = _normalize_report_type(data.report_type)
+    payload = data.payload if isinstance(data.payload, dict) else {}
+    now = datetime.utcnow()
+
+    payload_report_date = payload.get("reportDate")
+    report_date = _parse_report_date(data.report_date or payload_report_date)
+    report_year = report_date.year if report_date else now.year
+
+    report_sequence = _coerce_positive_int(data.report_number)
+    if report_sequence is None:
+        report_sequence = _coerce_positive_int(payload.get("reportNumber"))
+    if report_sequence is None:
+        max_sequence = (
+            db.query(func.max(models.IntelReport.report_sequence))
+            .filter(models.IntelReport.report_year == report_year)
+            .scalar()
+        )
+        report_sequence = (max_sequence or 0) + 1
+
+    existing_row = (
+        db.query(models.IntelReport.id)
+        .filter(
+            models.IntelReport.report_year == report_year,
+            models.IntelReport.report_sequence == report_sequence,
+        )
+        .first()
+    )
+    if existing_row:
+        raise HTTPException(
+            status_code=409,
+            detail=f"report sequence already exists for year {report_year}: {report_sequence}",
+        )
+
+    report_title = str(data.report_title or payload.get("title") or "").strip() or "Sin titulo"
+    file_name = _compose_intel_pdf_filename(report_sequence, report_year, report_title)
+
+    row = models.IntelReport(
+        report_type=rt,
+        report_year=report_year,
+        report_sequence=report_sequence,
+        report_title=report_title,
+        file_name=file_name,
+        report_date=report_date,
+        payload_json=json.dumps(payload, ensure_ascii=False),
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _report_history_to_response(row, include_payload=True)
+
+
+@app.put("/intel/reports/{report_id}", response_model=schemas.IntelReportOut)
+def update_intel_report_history(
+    report_id: int,
+    data: schemas.IntelReportUpdate,
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(models.IntelReport)
+        .filter(models.IntelReport.id == report_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="report not found")
+
+    payload = data.payload if isinstance(data.payload, dict) else {}
+    report_date = _parse_report_date(data.report_date or payload.get("reportDate"))
+    report_year = report_date.year if report_date else (row.report_year or datetime.utcnow().year)
+
+    report_sequence = _coerce_positive_int(data.report_number)
+    if report_sequence is None:
+        report_sequence = _coerce_positive_int(payload.get("reportNumber"))
+    if report_sequence is None:
+        report_sequence = row.report_sequence or 1
+
+    existing_row = (
+        db.query(models.IntelReport.id)
+        .filter(
+            models.IntelReport.report_year == report_year,
+            models.IntelReport.report_sequence == report_sequence,
+            models.IntelReport.id != report_id,
+        )
+        .first()
+    )
+    if existing_row:
+        raise HTTPException(
+            status_code=409,
+            detail=f"report sequence already exists for year {report_year}: {report_sequence}",
+        )
+
+    report_title = str(data.report_title or payload.get("title") or row.report_title or "").strip() or "Sin titulo"
+    file_name = _compose_intel_pdf_filename(report_sequence, report_year, report_title)
+
+    row.report_year = report_year
+    row.report_sequence = report_sequence
+    row.report_title = report_title
+    row.file_name = file_name
+    row.report_date = report_date
+    row.payload_json = json.dumps(payload, ensure_ascii=False)
+    row.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(row)
+    return _report_history_to_response(row, include_payload=True)
+
+
+@app.delete("/intel/reports/{report_id}")
+def delete_intel_report_history(report_id: int, db: Session = Depends(get_db)):
+    row = (
+        db.query(models.IntelReport)
+        .filter(models.IntelReport.id == report_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="report not found")
+    db.delete(row)
+    db.commit()
+    return {"ok": True, "id": report_id}
 
 
 @app.post("/actors", response_model=schemas.ActorOut)
@@ -425,26 +778,70 @@ def import_actors(file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only .csv files are supported")
 
-    content = file.file.read().decode("utf-8")
+    raw_content = file.file.read()
+    if not raw_content:
+        raise HTTPException(status_code=400, detail="CSV file is empty")
+
+    content = None
+    for encoding in ("utf-8-sig", "utf-8", "latin-1"):
+        try:
+            content = raw_content.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    if content is None:
+        raise HTTPException(status_code=400, detail="CSV encoding is not supported")
+
     reader = csv.DictReader(io.StringIO(content))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV headers are required")
+
+    header_by_normalized = {
+        (field or "").strip().lower(): field for field in reader.fieldnames
+    }
+    required_headers = {"name", "gti_id", "country"}
+    missing_headers = sorted(required_headers - set(header_by_normalized.keys()))
+    if missing_headers:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required headers: {', '.join(missing_headers)}"
+        )
 
     created = 0
     updated = 0
+    skipped = 0
+    conflicts = []
 
-    for row in reader:
-        name = (row.get("name") or "").strip()
-        gti_id = (row.get("gti_id") or "").strip()
-        country = (row.get("country") or "").strip()
-        aliases = (row.get("aliases") or "").strip() or None
-        active_str = (row.get("active") or "true").strip().lower()
+    def _cell(row: dict, key: str) -> str:
+        original_key = header_by_normalized.get(key)
+        if not original_key:
+            return ""
+        return (row.get(original_key) or "").strip()
+
+    for line_num, row in enumerate(reader, start=2):
+        name = _cell(row, "name")
+        gti_id = _cell(row, "gti_id")
+        country = _cell(row, "country")
+        aliases = _cell(row, "aliases") or None
+        active_str = (_cell(row, "active") or "true").lower()
         active = active_str in ["true", "1", "yes", "y"]
 
         if not name or not gti_id or not country:
+            skipped += 1
             continue
 
-        existing = db.query(models.ThreatActor).filter(models.ThreatActor.gti_id == gti_id).first()
-        if existing:
+        existing_by_gti = db.query(models.ThreatActor).filter(models.ThreatActor.gti_id == gti_id).first()
+        existing_by_name = db.query(models.ThreatActor).filter(models.ThreatActor.name == name).first()
+
+        if existing_by_gti and existing_by_name and existing_by_gti.id != existing_by_name.id:
+            conflicts.append({"line": line_num, "name": name, "gti_id": gti_id})
+            skipped += 1
+            continue
+
+        existing = existing_by_gti or existing_by_name
+        if existing is not None:
             existing.name = name
+            existing.gti_id = gti_id
             existing.country = country
             existing.aliases = aliases
             existing.active = active
@@ -459,8 +856,22 @@ def import_actors(file: UploadFile = File(...), db: Session = Depends(get_db)):
             ))
             created += 1
 
-    db.commit()
-    return {"status": "ok", "created": created, "updated": updated}
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="CSV contains duplicated unique values (name or gti_id). Check repeated rows."
+        )
+
+    return {
+        "status": "ok",
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "conflicts": conflicts,
+    }
 
 
 @app.put("/actors/{actor_id}", response_model=schemas.ActorOut)
@@ -1611,6 +2022,135 @@ def update_mitre_now(db: Session = Depends(get_db)):
     except Exception as e:
         _finish_job_error(db, job.id, str(e))
         raise
+
+
+@app.post("/admin/sync-opencti")
+def sync_opencti_now(limit: int = 200):
+    limit = max(1, min(int(limit), 1000))
+    result = _run_opencti_sync_job(limit=limit)
+    return {"status": "ok", **result}
+
+
+@app.post("/admin/sync-misp")
+def sync_misp_now(
+    limit: int = 5000,
+    days: int = 30,
+    page_size: int = 500,
+    db: Session = Depends(get_db)
+):
+    limit = max(1, min(int(limit), 1000000))
+    page_size = max(50, min(int(page_size), 1000))
+    days = int(days)
+    if days < 0:
+        raise HTTPException(status_code=400, detail="days must be >= 0")
+
+    result = sync_misp_attributes(
+        db,
+        limit=limit,
+        page_size=page_size,
+        days=days if days > 0 else None
+    )
+    return {"status": "ok", **result}
+
+
+_IOC_SOURCE_ORDER = ["TweetFeed", "GTI/Mandiant", "AlertaDeInteligenciaDeAmenazas", "Otro"]
+
+
+def _normalize_ioc_source(value: str | None) -> str:
+    if value in _IOC_SOURCE_ORDER:
+        return value
+    return "Otro"
+
+
+def _attribute_type_bucket(value: str | None) -> str:
+    t = (value or "").strip().lower()
+    if not t:
+        return "Otros"
+    if t.startswith("ip-") or t == "ip" or t in {"ip-src|port", "ip-dst|port"}:
+        return "IPs"
+    if "domain" in t or "hostname" in t:
+        return "Dominios"
+    return "Otros"
+
+
+@app.get("/dashboard/ioc-sources")
+def dashboard_ioc_sources(days: int = 30, db: Session = Depends(get_db)):
+    days = max(1, min(int(days), 3650))
+    since_date = (datetime.utcnow() - timedelta(days=days - 1)).date()
+
+    rows = (
+        db.query(
+            models.MispAttribute.observed_date,
+            models.MispAttribute.source_bucket,
+            func.count(models.MispAttribute.id).label("count")
+        )
+        .filter(models.MispAttribute.observed_date >= since_date)
+        .group_by(models.MispAttribute.observed_date, models.MispAttribute.source_bucket)
+        .order_by(models.MispAttribute.observed_date.asc())
+        .all()
+    )
+
+    by_date = {}
+    totals = {k: 0 for k in _IOC_SOURCE_ORDER}
+
+    for observed_date, raw_source, count in rows:
+        if not observed_date:
+            continue
+        source = _normalize_ioc_source(raw_source)
+        key = observed_date.isoformat()
+        if key not in by_date:
+            by_date[key] = {"date": key, "TweetFeed": 0, "GTI/Mandiant": 0, "AlertaDeInteligenciaDeAmenazas": 0, "Otro": 0, "total": 0}
+        by_date[key][source] += int(count or 0)
+        by_date[key]["total"] += int(count or 0)
+        totals[source] += int(count or 0)
+
+    total_attributes = sum(totals.values())
+    totals_array = [{"source": k, "count": totals[k]} for k in _IOC_SOURCE_ORDER]
+    daily_array = [by_date[k] for k in sorted(by_date.keys())]
+
+    return {
+        "window_days": days,
+        "total_attributes": total_attributes,
+        "totals": totals_array,
+        "daily": daily_array,
+    }
+
+
+@app.get("/dashboard/ioc-attribute-types")
+def dashboard_ioc_attribute_types(days: int = 30, db: Session = Depends(get_db)):
+    days = max(1, min(int(days), 3650))
+    since_date = (datetime.utcnow() - timedelta(days=days - 1)).date()
+
+    type_rows = (
+        db.query(
+            models.MispAttribute.attribute_type,
+            func.count(models.MispAttribute.id).label("count")
+        )
+        .filter(models.MispAttribute.observed_date >= since_date)
+        .group_by(models.MispAttribute.attribute_type)
+        .order_by(func.count(models.MispAttribute.id).desc())
+        .all()
+    )
+
+    bucket_counts = {"Dominios": 0, "IPs": 0, "Otros": 0}
+    top_types = []
+
+    for attr_type, count in type_rows:
+        n = int(count or 0)
+        bucket = _attribute_type_bucket(attr_type)
+        bucket_counts[bucket] += n
+        top_types.append({"attribute_type": attr_type or "unknown", "count": n})
+
+    return {
+        "window_days": days,
+        "total_attributes": sum(bucket_counts.values()),
+        "breakdown": [
+            {"name": "Dominios", "count": bucket_counts["Dominios"]},
+            {"name": "IPs", "count": bucket_counts["IPs"]},
+            {"name": "Otros", "count": bucket_counts["Otros"]},
+        ],
+        "top_attribute_types": top_types[:10],
+    }
 # =====================================================
 # TOP TECHNIQUES
 # =====================================================

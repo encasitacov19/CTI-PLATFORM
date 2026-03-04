@@ -5,6 +5,8 @@
 
 # Python
 venv/
+.venv/
+env/
 __pycache__/
 *.py[cod]
 *.pyo
@@ -42,6 +44,11 @@ Frontend/.git.backup/
 # Temporary files
 *.tmp
 *.swp
+*.pid
+Thumbs.db
 
 # Optional local folders
 postgres_data/
+docker_data/
+*.sqlite3
+*.db
