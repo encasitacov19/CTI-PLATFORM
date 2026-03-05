@@ -102,6 +102,7 @@
 
 .intel-editor-panel {
   display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   gap: 12px;
   position: sticky;
   top: 8px;
@@ -109,6 +110,18 @@
   max-height: calc(100vh - 16px);
   max-height: calc(100dvh - 16px);
   overflow: hidden;
+  min-height: 0;
+}
+
+.intel-editor-content {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding-right: 4px;
+  overscroll-behavior: contain;
 }
 
 .intel-editor-quick-actions {

@@ -21,6 +21,18 @@ const toJsonFileName = (fileName) => {
   return base.toLowerCase().endsWith(".pdf") ? `${base.slice(0, -4)}.json` : `${base}.json`;
 };
 
+const toIocsFileName = (fileName) => {
+  const base = String(fileName || "reporte").trim();
+  const cleanBase = base.toLowerCase().endsWith(".pdf") ? base.slice(0, -4) : base;
+  return `${cleanBase}-IOCs.txt`;
+};
+
+const toLines = (text = "") =>
+  String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
 export default function IntelReportsHistory() {
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
@@ -93,6 +105,48 @@ export default function IntelReportsHistory() {
     const link = document.createElement("a");
     link.href = url;
     link.download = toJsonFileName(row?.file_name);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadIocs = async (row) => {
+    let resolvedPayload = row?.payload && typeof row.payload === "object" ? row.payload : null;
+    if (!resolvedPayload && row?.id) {
+      try {
+        const res = await api.get(`/intel/reports/${row.id}`);
+        resolvedPayload = res?.data?.payload && typeof res.data.payload === "object" ? res.data.payload : {};
+      } catch {
+        setError("No se pudo preparar la descarga de IOCs del informe.");
+        return;
+      }
+    }
+
+    const payload = resolvedPayload || {};
+    const iocs = [
+      ...toLines(payload.iocDomainText ?? payload.domainsText ?? ""),
+      ...toLines(payload.iocIpText ?? payload.ipsText ?? ""),
+      ...toLines(payload.iocUrlText || ""),
+      ...toLines(payload.iocSha256Text ?? payload.hashesText ?? ""),
+      ...toLines(payload.iocSha1Text || ""),
+      ...toLines(payload.iocMd5Text || ""),
+    ]
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+
+    const uniqueIocs = Array.from(new Set(iocs));
+    if (!uniqueIocs.length) {
+      setError("Este informe no tiene IOCs para descargar.");
+      return;
+    }
+
+    setError("");
+    const blob = new Blob([uniqueIocs.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = toIocsFileName(row?.file_name);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -228,6 +282,9 @@ export default function IntelReportsHistory() {
                         </button>
                         <button type="button" className="intel-history-btn" onClick={() => handleDownloadJson(row)}>
                           Descargar JSON
+                        </button>
+                        <button type="button" className="intel-history-btn" onClick={() => handleDownloadIocs(row)}>
+                          Descargar IOCs
                         </button>
                         <button
                           type="button"

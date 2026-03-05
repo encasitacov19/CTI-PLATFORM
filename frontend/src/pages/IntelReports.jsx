@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import "../styles/intel-reports.css";
 import api from "../api";
 
@@ -37,6 +37,30 @@ const RISK_STYLE = {
 };
 
 const BOGOTA_TZ = "America/Bogota";
+const GLOBAL_COVER_STORAGE_KEY = "intel_reports_global_cover_bg";
+
+const readStoredGlobalCover = () => {
+  if (typeof window === "undefined") return "";
+  try {
+    return String(window.localStorage.getItem(GLOBAL_COVER_STORAGE_KEY) || "");
+  } catch {
+    return "";
+  }
+};
+
+const writeStoredGlobalCover = (value) => {
+  if (typeof window === "undefined") return;
+  try {
+    const normalized = String(value || "").trim();
+    if (normalized) {
+      window.localStorage.setItem(GLOBAL_COVER_STORAGE_KEY, normalized);
+    } else {
+      window.localStorage.removeItem(GLOBAL_COVER_STORAGE_KEY);
+    }
+  } catch {
+    // no-op
+  }
+};
 
 const getBogotaNowParts = () => {
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -100,21 +124,9 @@ const normalizeTimeHm = (value) => {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 };
 
-const formatReportDateTime = (dateValue, timeValue) => {
-  const datePart = formatReportDate(dateValue);
-  const normalizedTime = normalizeTimeHm(timeValue);
-  if (!normalizedTime) return datePart;
-  return `${datePart} ${normalizedTime}`;
-};
-
 const inputDateValue = (value) => {
   const normalizedIso = normalizeDateToIso(value);
   return normalizedIso || getTodayIsoDate();
-};
-
-const inputTimeValue = (value) => {
-  const normalizedHm = normalizeTimeHm(value);
-  return normalizedHm || getCurrentBogotaTimeHm();
 };
 
 const coercePositiveInt = (value) => {
@@ -145,6 +157,7 @@ const MALWARE_TEMPLATE = {
   title: "Campaña con Remcos y AsyncRAT suplantando a la Registraduría en Colombia",
   generationPrompt:
     "Genera un informe técnico de malware en español, formato ejecutivo + técnico, incluyendo resumen, TTP MITRE ATT&CK, IoCs accionables, recomendaciones priorizadas y referencias verificables.",
+  malwareTypeText: "Troyano (RAT)\nPhishing",
   severityLabel: "Malware",
   severityLevel: "Alto",
   coverBadge: "Malware",
@@ -170,6 +183,7 @@ const MALWARE_TEMPLATE = {
     "6f1c3e6f0f53eb37d4ba5b6ca8f161643bd74447\n7a92b2b8f6a8d0a16776990f2ba1d2ee0e9f2570",
   iocMd5Text:
     "3f0b993f30f64f7f73bc2abf2f622f68\ncda3557f39f66f8cc5c7e378f35c3f90",
+  ioaText: "",
   referencesText:
     "Policía Nacional de Colombia, CSIRT. Boletín informativo Nro. 015 – Alerta indicadores de compromiso.|https://cc-csirt.policia.gov.co/alertas-tips/2026/informe-trimestre/boletin-informativo-nro-015-alerta-indicadores-de\nabuse.ch. ThreatFox: Indicators associated with AS214943.|https://threatfox.abuse.ch/browse/tag/AS214943/\nAlienVault OTX. Indicator details for IP 192.169.69.25.|https://otx.alienvault.com/indicator/ip/192.169.69.25\nShodan. Host report for 158.94.208.135.|https://www.shodan.io/host/158.94.208.135\nANY.RUN. Interactive malware analysis task 31f4fd2-d4f9-4599-b05d-7b44ee938950.|https://app.any.run/tasks/31f4fd2-d4f9-4599-b05d-7b44ee938950\ndr-b-ra. C2IntelFeeds (Repositorio de GitHub).|https://github.com/dr-b-ra/C2IntelFeeds",
 };
@@ -243,6 +257,12 @@ const toParagraphs = (text = "") =>
   text
     .split(/\n{2,}/)
     .map((chunk) => chunk.trim())
+    .filter(Boolean);
+
+const toCommaOrLineItems = (text = "") =>
+  String(text || "")
+    .split(/[\r\n,]+/)
+    .map((item) => item.trim())
     .filter(Boolean);
 
 const parsePipeRows = (text, columns) => {
@@ -718,6 +738,17 @@ const buildRawSections = (parsed, reportType) => {
   }
 
   if (reportType === "malware") {
+    if (parsed.malwareTypes.length) {
+      sections.push({
+        type: "list",
+        title: "Tipo de malware",
+        showTitle: true,
+        listStyle: "bullet",
+        subtitle: "",
+        items: parsed.malwareTypes,
+      });
+    }
+
     if (parsed.ttpRows.length) {
       sections.push({
         type: "table",
@@ -803,6 +834,17 @@ const buildRawSections = (parsed, reportType) => {
       });
       iocTitleShown = true;
     });
+
+    if (parsed.ioas.length) {
+      sections.push({
+        type: "list",
+        title: "IOAs Indicadores de ataque",
+        showTitle: true,
+        listStyle: "bullet",
+        subtitle: "",
+        items: parsed.ioas,
+      });
+    }
   }
 
   if (parsed.references.length) {
@@ -1167,10 +1209,18 @@ export default function IntelReports() {
   const [reportType, setReportType] = useState("malware");
   const [editorStep, setEditorStep] = useState(0);
   const [showPreview, setShowPreview] = useState(true);
-  const [reports, setReports] = useState(() => ({
-    malware: deepClone(MALWARE_TEMPLATE),
-    vulnerabilities: deepClone(VULNERABILITY_TEMPLATE),
-  }));
+  const [reports, setReports] = useState(() => {
+    const storedGlobalCover = readStoredGlobalCover();
+    const next = {
+      malware: deepClone(MALWARE_TEMPLATE),
+      vulnerabilities: deepClone(VULNERABILITY_TEMPLATE),
+    };
+    if (storedGlobalCover) {
+      next.malware.coverBackgroundImage = storedGlobalCover;
+      next.vulnerabilities.coverBackgroundImage = storedGlobalCover;
+    }
+    return next;
+  });
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [syncState, setSyncState] = useState({ saving: false, message: "" });
   const [historyState, setHistoryState] = useState({ saving: false, message: "", lastFileName: "" });
@@ -1180,7 +1230,6 @@ export default function IntelReports() {
     year: Number.parseInt(getTodayIsoDate().slice(0, 4), 10),
     rows: [],
   });
-  const fileInputRef = useRef(null);
   const coverBgInputRef = useRef(null);
   const reportNumberTouchedRef = useRef(false);
 
@@ -1343,6 +1392,22 @@ export default function IntelReports() {
             }
             next[key] = merged;
           });
+          const storedGlobalCover = readStoredGlobalCover();
+          const resolvedGlobalCover =
+            storedGlobalCover ||
+            String(next?.malware?.coverBackgroundImage || "").trim() ||
+            String(next?.vulnerabilities?.coverBackgroundImage || "").trim();
+          if (resolvedGlobalCover) {
+            next.malware = {
+              ...next.malware,
+              coverBackgroundImage: resolvedGlobalCover,
+            };
+            next.vulnerabilities = {
+              ...next.vulnerabilities,
+              coverBackgroundImage: resolvedGlobalCover,
+            };
+            writeStoredGlobalCover(resolvedGlobalCover);
+          }
           return next;
         });
         setSyncState({ saving: false, message: "Plantillas cargadas desde base de datos" });
@@ -1381,6 +1446,10 @@ export default function IntelReports() {
         const merged = { ...template, ...payload };
         merged.reportDate = normalizeDateToIso(merged.reportDate) || getTodayIsoDate();
         merged.reportTime = normalizeTimeHm(merged.reportTime) || getCurrentBogotaTimeHm();
+        const globalCover = String(readStoredGlobalCover() || "").trim();
+        if (globalCover) {
+          merged.coverBackgroundImage = globalCover;
+        }
         if (!TLP_OPTIONS.includes(merged.classification)) {
           merged.classification = template.classification;
         }
@@ -1451,116 +1520,9 @@ export default function IntelReports() {
     setReportType(nextType);
   };
 
-  const restoreTemplate = () => {
-    const now = getBogotaNowParts();
-    reportNumberTouchedRef.current = false;
-    setReports((prev) => ({
-      ...prev,
-      [reportType]: {
-        ...deepClone(TEMPLATE_BY_TYPE[reportType]),
-        reportDate: now.dateIso,
-        reportTime: now.timeHm,
-      },
-    }));
-  };
-
   const handleReportNumberChange = (value) => {
     reportNumberTouchedRef.current = true;
     updateField("reportNumber", value);
-  };
-
-  const exportJson = () => {
-    const payload = {
-      type: reportType,
-      report: current,
-      exported_at: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `reporte-inteligencia-${reportType}-${Date.now()}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const downloadIocsTxt = () => {
-    const iocs = [
-      ...toLines(current.iocDomainText ?? current.domainsText ?? ""),
-      ...toLines(current.iocIpText ?? current.ipsText ?? ""),
-      ...toLines(current.iocUrlText || ""),
-      ...toLines(current.iocSha256Text ?? current.hashesText ?? ""),
-      ...toLines(current.iocSha1Text || ""),
-      ...toLines(current.iocMd5Text || ""),
-    ]
-      .map((item) => String(item || "").trim())
-      .filter(Boolean);
-
-    const uniqueIocs = Array.from(new Set(iocs));
-    const blob = new Blob([uniqueIocs.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `iocs-${reportType}-${Date.now()}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const importJson = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result || "{}"));
-        const incomingType =
-          parsed?.type === "vulnerabilities" || parsed?.type === "malware"
-            ? parsed.type
-            : reportType;
-        const template = deepClone(TEMPLATE_BY_TYPE[incomingType]);
-        const incomingData = parsed?.report && typeof parsed.report === "object" ? parsed.report : parsed;
-        const merged = { ...template, ...incomingData };
-        merged.reportDate = normalizeDateToIso(merged.reportDate) || getTodayIsoDate();
-        merged.reportTime = normalizeTimeHm(merged.reportTime) || getCurrentBogotaTimeHm();
-        if (!TLP_OPTIONS.includes(merged.classification)) {
-          merged.classification = template.classification;
-        }
-        if (incomingType === "vulnerabilities") {
-          const migratedVulnItems = sanitizeVulnerabilityItems(merged.vulnerabilityItems);
-          merged.vulnerabilityItems = migratedVulnItems.length
-            ? migratedVulnItems
-            : fallbackVulnerabilityItemsFromText(merged.cveText);
-          if (!String(merged.affectedTechnologiesText || "").trim()) {
-            const legacyTechnologies = parsePipeRows(merged.affectedAssetsText || "", [
-              "asset",
-              "type",
-              "scope",
-              "status",
-            ])
-              .map((row) => [row.asset, row.type].filter(Boolean).join(" - ").trim())
-              .filter(Boolean);
-            if (legacyTechnologies.length) {
-              merged.affectedTechnologiesText = legacyTechnologies.join("\n");
-            }
-          }
-        }
-        setReports((prev) => ({
-          ...prev,
-          [incomingType]: merged,
-        }));
-        setReportType(incomingType);
-      } catch (error) {
-        // eslint-disable-next-line no-alert
-        alert("No se pudo importar el JSON. Verifica el formato.");
-      } finally {
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
-    };
-    reader.readAsText(file);
   };
 
   const parsed = useMemo(() => {
@@ -1585,6 +1547,7 @@ export default function IntelReports() {
         : [];
 
     return {
+      malwareTypes: toCommaOrLineItems(current.malwareTypeText || "").map(stripBullet),
       summary: toParagraphs(current.summary),
       description: toParagraphs(current.description),
       recommendations: toLines(current.recommendationsText).map(stripBullet),
@@ -1596,6 +1559,7 @@ export default function IntelReports() {
       iocSha256: toLines(current.iocSha256Text ?? current.hashesText ?? ""),
       iocSha1: toLines(current.iocSha1Text || ""),
       iocMd5: toLines(current.iocMd5Text || ""),
+      ioas: toLines(current.ioaText || "").map(stripBullet),
       cveRows: parsePipeRows(current.cveText || "", ["cve", "cvss", "severity", "detail"]).map((row) => ({
         ...row,
         severity: String(row.severity || "").replace("Crítico", "Critica"),
@@ -1681,7 +1645,7 @@ export default function IntelReports() {
                   : "Agrega vulnerabilidades y tecnologías afectadas.";
   const tlpStyle = TLP_STYLE[current.classification] || TLP_STYLE["TLP:WHITE"];
   const riskStyle = RISK_STYLE[current.severityLevel] || RISK_STYLE.Alto;
-  const reportDateLabel = formatReportDateTime(current.reportDate, current.reportTime);
+  const reportDateLabel = formatReportDate(current.reportDate);
 
   const coverStyle = useMemo(() => {
     const gradientLayers = [
@@ -1722,6 +1686,13 @@ export default function IntelReports() {
       });
 
       if (reportType === "malware") {
+        addListSection(builder, {
+          title: "Tipo de malware",
+          items: parsed.malwareTypes,
+          listStyle: "bullet",
+          charsPerLine: 112,
+        });
+
         addTableSection(builder, {
           title: "TTP",
           rows: parsed.ttpRows,
@@ -1766,6 +1737,15 @@ export default function IntelReports() {
         charsPerLine: 108,
         maxCharsPerItem: 180,
       });
+
+      if (reportType === "malware") {
+        addListSection(builder, {
+          title: "IOAs Indicadores de ataque",
+          items: parsed.ioas,
+          listStyle: "bullet",
+          charsPerLine: 108,
+        });
+      }
 
       addReferenceSection(builder, "Referencias", parsed.references);
       return builder.pages.filter((page) => page.sections.length > 0);
@@ -1910,31 +1890,31 @@ export default function IntelReports() {
     const reader = new FileReader();
     reader.onload = () => {
       const imageData = String(reader.result || "");
-      const nextReport = {
-        ...reports[reportType],
+      const nextMalware = {
+        ...reports.malware,
         coverBackgroundImage: imageData,
       };
+      const nextVulnerabilities = {
+        ...reports.vulnerabilities,
+        coverBackgroundImage: imageData,
+      };
+      writeStoredGlobalCover(imageData);
       setReports((prev) => ({
         ...prev,
-        [reportType]: nextReport,
+        malware: {
+          ...prev.malware,
+          coverBackgroundImage: imageData,
+        },
+        vulnerabilities: {
+          ...prev.vulnerabilities,
+          coverBackgroundImage: imageData,
+        },
       }));
-      saveTemplateToDb(reportType, nextReport, true);
+      saveTemplateToDb("malware", nextMalware, true);
+      saveTemplateToDb("vulnerabilities", nextVulnerabilities, true);
       if (coverBgInputRef.current) coverBgInputRef.current.value = "";
     };
     reader.readAsDataURL(file);
-  };
-
-  const clearCoverBackground = () => {
-    const nextReport = {
-      ...reports[reportType],
-      coverBackgroundImage: "",
-    };
-    setReports((prev) => ({
-      ...prev,
-      [reportType]: nextReport,
-    }));
-    saveTemplateToDb(reportType, nextReport, true);
-    if (coverBgInputRef.current) coverBgInputRef.current.value = "";
   };
 
   const saveReportToHistory = async ({ silent = false } = {}) => {
@@ -2000,6 +1980,11 @@ export default function IntelReports() {
     }
   };
 
+  const handleSaveInDb = async () => {
+    await saveTemplateToDb(reportType, null, false);
+    await saveReportToHistory({ silent: true });
+  };
+
   const handlePrint = async () => {
     if (!showPreview) {
       setShowPreview(true);
@@ -2029,38 +2014,18 @@ export default function IntelReports() {
           <p>Llena campos, visualiza el informe y exporta rápido a PDF con impresión del navegador.</p>
         </div>
         <div className="intel-toolbar-actions">
-          <button type="button" className="intel-btn" onClick={restoreTemplate}>
-            Restablecer plantilla
-          </button>
           <button
             type="button"
             className="intel-btn"
-            onClick={() => saveTemplateToDb()}
-            disabled={templatesLoading || syncState.saving}
+            onClick={handleSaveInDb}
+            disabled={templatesLoading || syncState.saving || historyState.saving || (!hasHistoryId && hasDuplicateSequence)}
           >
-            {syncState.saving ? "Guardando..." : "Guardar en BD"}
+            {syncState.saving || historyState.saving ? "Guardando..." : "Guardar en BD"}
           </button>
-          <button type="button" className="intel-btn" onClick={exportJson}>
-            Exportar JSON
-          </button>
-          <button type="button" className="intel-btn" onClick={downloadIocsTxt}>
-            Descargar IOCs
-          </button>
-          <Link className="intel-btn intel-btn-link" to="/intel-reports/history">
-            Ver histórico
-          </Link>
           <label className="intel-btn intel-btn-file">
-            Importar JSON
-            <input ref={fileInputRef} type="file" accept=".json" onChange={importJson} />
+            Editar fondo global
+            <input ref={coverBgInputRef} type="file" accept="image/*" onChange={handleCoverBackgroundUpload} />
           </label>
-          <button
-            type="button"
-            className="intel-btn"
-            onClick={() => saveReportToHistory()}
-            disabled={historyState.saving || (!hasHistoryId && hasDuplicateSequence)}
-          >
-            {historyState.saving ? "Guardando informe..." : "Guardar informe histórico"}
-          </button>
           <button type="button" className="intel-btn intel-btn-primary" onClick={handlePrint}>
             Imprimir / Guardar PDF
           </button>
@@ -2126,6 +2091,26 @@ export default function IntelReports() {
             </button>
           </div>
 
+          <div className="intel-editor-content">
+          <div className="intel-form-block">
+            <h3>Prompt</h3>
+            <label>
+              {reportType === "malware"
+                ? "Editar prompt para generar informe de malware"
+                : "Editar prompt para generar informe de vulnerabilidades"}
+              <textarea
+                value={current.generationPrompt || ""}
+                onChange={(e) => updateField("generationPrompt", e.target.value)}
+                rows={3}
+                placeholder={
+                  reportType === "malware"
+                    ? "Escribe aquí el prompt base para construir el informe de malware..."
+                    : "Escribe aquí el prompt base para construir el informe de vulnerabilidades..."
+                }
+              />
+            </label>
+          </div>
+
           {activeStepId === "config" ? (
             <div className="intel-form-block">
               <h3>Configuración</h3>
@@ -2163,15 +2148,6 @@ export default function IntelReports() {
                   />
                 </label>
               </div>
-              <label>
-                Hora (Colombia)
-                <input
-                  type="time"
-                  lang="es-CO"
-                  value={inputTimeValue(current.reportTime)}
-                  onChange={(e) => updateField("reportTime", normalizeTimeHm(e.target.value) || getCurrentBogotaTimeHm())}
-                />
-              </label>
               <p className={`intel-sequence-hint ${hasDuplicateSequence ? "is-warning" : ""}`}>{sequenceStatusMessage}</p>
               <label>
                 Encabezado de equipo
@@ -2187,21 +2163,6 @@ export default function IntelReports() {
                   value={current.title}
                   onChange={(e) => updateField("title", e.target.value)}
                   rows={2}
-                />
-              </label>
-              <label>
-                {reportType === "malware"
-                  ? "Editar prompt para generar informe de malware"
-                  : "Editar prompt para generar informe de vulnerabilidades"}
-                <textarea
-                  value={current.generationPrompt || ""}
-                  onChange={(e) => updateField("generationPrompt", e.target.value)}
-                  rows={3}
-                  placeholder={
-                    reportType === "malware"
-                      ? "Escribe aquí el prompt base para construir el informe de malware..."
-                      : "Escribe aquí el prompt base para construir el informe de vulnerabilidades..."
-                  }
                 />
               </label>
               <div className="intel-grid-2">
@@ -2227,42 +2188,21 @@ export default function IntelReports() {
                   </select>
                 </label>
               </div>
-              <div className="intel-upload-block">
-                <span>Fondo de portada</span>
-                <div className="intel-upload-actions">
-                  <button
-                    type="button"
-                    className="intel-btn"
-                    onClick={() => coverBgInputRef.current?.click()}
-                  >
-                    Cargar fondo
-                  </button>
-                  <button
-                    type="button"
-                    className="intel-btn"
-                    onClick={clearCoverBackground}
-                    disabled={!current.coverBackgroundImage}
-                  >
-                    Quitar fondo
-                  </button>
-                  <input
-                    ref={coverBgInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleCoverBackgroundUpload}
-                    className="intel-hidden-input"
-                  />
-                </div>
-                <small>
-                  {current.coverBackgroundImage ? "Imagen de fondo cargada." : "Sin imagen cargada (fondo por defecto)."}
-                </small>
-              </div>
             </div>
           ) : null}
 
           {activeStepId === "malware-base" ? (
             <div className="intel-form-block">
               <h3>Resumen y descripción</h3>
+              <label>
+                Tipo de malware (uno por línea o separado por coma)
+                <textarea
+                  value={current.malwareTypeText || ""}
+                  onChange={(e) => updateField("malwareTypeText", e.target.value)}
+                  rows={2}
+                  placeholder="Troyano, Phishing, Ransomware..."
+                />
+              </label>
               <label>
                 Resumen
                 <textarea
@@ -2405,6 +2345,14 @@ export default function IntelReports() {
                   rows={3}
                 />
               </label>
+              <label>
+                IOAs Indicadores de ataque (uno por línea)
+                <textarea
+                  value={current.ioaText || ""}
+                  onChange={(e) => updateField("ioaText", e.target.value)}
+                  rows={4}
+                />
+              </label>
             </div>
           ) : null}
 
@@ -2470,6 +2418,7 @@ export default function IntelReports() {
               </label>
             </div>
           ) : null}
+          </div>
 
         </aside>
 
